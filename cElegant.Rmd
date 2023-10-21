@@ -1,0 +1,181 @@
+---
+title: "Classical Multidimensional Scaling with Weights"
+author: 
+- Jan de Leeuw - University of California Los Angeles
+date: '`r paste("Started October 17 2023, Version of",format(Sys.Date(),"%B %d, %Y"))`'
+output:
+  bookdown::pdf_document2:
+    latex_engine: lualatex 
+    includes:
+      in_header: preamble.tex
+    keep_tex: yes
+    toc: true
+    toc_depth: 3
+    number_sections: yes
+  bookdown::html_document2:
+    keep_md: yes
+    css: preamble.css
+    toc: true
+    toc_depth: 3
+    number_sections: yes
+graphics: yes
+mainfont: Times New Roman
+fontsize: 12pt
+bibliography: ["mypubs.bib","total.bib"]
+abstract: TBD
+---
+```{r loadpackages, echo = FALSE}
+#suppressPackageStartupMessages (library (foo, quietly = TRUE))
+```
+
+```{r load code, echo = FALSE}
+#dyn.load("foo.so")
+source("janUtil.R")
+```
+
+
+**Note:** This is a working paper which will be expanded/updated frequently. All suggestions for improvement are welcome. 
+
+# Introduction
+
+In smacof (@deleeuw_mair_A_09c, @mair_groenen_deleeuw_A_22) an initial configuration is needed to start the iterative process. The choice of such an initial configuration is important, because a good starting configuration is the best protection against non-global local minima (@malone_tarazaga_trosset_02
+).
+
+In the CRAN version of smacof the initial configuration is the classical
+Torgerson-Gower solution (@torgerson_52, @gower_66). There are some problems
+with this choice. It requires complete data, and special measures are needed
+if there are missing data (smacof imputes missing data by using the average
+dissimilarity). Also, the Torgerson-Gower solution does not allow for
+the weights that are used in the smacof theory and implementation It supposes all
+weights are equal. This may make the initial configuration far from optimal
+for smacof problems with weights. And finally Torgerson-Gower minimizes a loss function defined on the scalar products of the points (vectors) in the configuration, and that loss function can rank solutions quite differently from the smacof stress measure based on distances.
+
+
+# The Nearest EDM Problem
+
+The loss function we use to compute a good configuration is
+$$
+\sigma(C)=\jis w_{ij}(\delta_{ij}^2-d_{ij}^2(C))^2
+$$
+which is defined on the space $\mathcal{C}_n$ of all symmetric doubly-centered 
+or SDC matrices of order $n$. 
+
+$$
+d_{ij}^2(C)=\text{tr}\ A_{ij}C=a_{ij}'c.
+$$
+
+A first interesting result is that the minimum of ... over all $C$ in 
+$C_n$ is equal to zero, and that minimum is attained at
+$$
+\overline{C}=-\frac12 J_n(\Delta\times\Delta)J_n
+$$
+where $J_n=I_n-n^{-1}E_n$ is the centering matrix and $\Delta\times\Delta$
+is the matrix with elements $\delta_{ij}^2$. Thus one way of looking at the
+Torgerson-Gower solution is as a two-step solution. In the first step we
+compute $\overline{C}$ by minimizing ... over $\mathcal{C}_n$, and in the
+second step we minimize
+$$
+\sigma(X)=\text{tr}\ (\overline{C}-XX')^2
+$$
+over the $n\times p$ configurations $X$, using the classical Eckart-Young result. This points to another problem
+with this MDS solution. If $\overline{C}$ has only $q<p$ positive eigenvalues then 
+the solution $X$ that minimizes ... will be of rank $q$, which is generally not what we want for an initial configuration.
+
+Loss function ..., generally called sstress, 
+
+$$
+\sigma(C)=\jis w_{ij}(\delta_{ij}-d_{ij}(C))^2=\jis\frac{w_{ij}}{(\delta_{ij}+d_{ij}(C))^2}(\delta_{ij}^2-d_{ij}^2(C))^2\approx\frac14\jis\frac{w_{ij}}{\delta_{ij}^2}
+(\delta_{ij}^2-d_{ij}^2(C))^2
+$$
+Thus by suitable weighting we can bring stress and sstress more closely together
+(especially in the case of good fit).
+
+Minimize ... over all $C$ in $\mathcal{C}_n^+$, the positive semi-definite
+SDC matrices. This is a convex programming problem, since $\mathcal{C}_n^+$ is a closed convex cone and sstress ... is a convex quadratic function of $C$. Thus
+this problem has no non-global local minima, and its solution projects
+$\Delta\times\Delta$ on the cone $\mathcal{C}_n^+$. Unfortunately this cone
+is not polyhedral and sophisticated algorithms are needed to compute the
+projection mapping (see, for example,  section 30.4.7 on the nearest EDM problem in @krislock_wolkowicz_02). @al-homidan_wolkowicz_05, qi
+
+Finally there is the problem of minimizing sstress over $\mathcal{C}_n^+(p)$,
+the PSD SDC matrices of rank less than or equal to $p$. This is the usual
+multidimensional scaling problem for sstress, first implemented in great generality in ALSCAL (takane_young_deleeuw_A_77). Alternatively, there is the ELEGANT
+algorithm of @deleeuw_U_75b, updated as @deleeuw_U_04a. The history of ELEGANT is reviewed in @deleeuw_groenen_pietersz_E_16m. In this paper we will use
+an improved implementation of ELEGANT.
+
+# The ELEGANT Algorithm
+
+## Rewriting Sstress
+
+$$
+d_{ij}^4(C)=c'a_{ij}a_{ij}'c=c'(A_{ij}\otimes A_{ij})c
+$$
+
+$$
+d_{ij}^2(C)-\delta_{ij}^2=\text{tr}\ A_{ij}(C-\overline{C})
+$$
+and
+$$
+\sigma(C)=(c-\overline{c})'\left\{\jis w_{ij}A_{ij}\otimes A_{ij}\right\}(c-\overline c)=(c-\overline{c})'\left\{\jis w_{ij}a_{ij}a_{ij}' \right\}(c-\overline c)
+$$
+$$
+\jis w_{ij}a_{ij}a_{ij}'=AWA'
+$$
+
+## Majorization
+
+General problem: minimize $\sigma$ defined by $\sigma(x)=(x-y)'H(x-y)$ over $x$ in some set $\mathcal{X}$. Simplify weights. Suppose $0\prec G\preceq H$ in the Loewner order. $f=G^{-1}H(\overline{x}-y)$
+$$
+\sigma(x)=\sigma(\overline{x})+(x-(\overline{x}-f)'G(x-(\overline{x}-f))-f'Gf
+$$
+(@kiers_97, @groenen_giaquinto_kiers_03).
+$$
+\jis w_{ij}A_{ij}\otimes A_{ij}\lesssim V\otimes V
+$$
+and thus
+$$
+c'\left\{\jis w_{ij}A_{ij}\otimes A_{ij}\right\}c\leq c'\{V\otimes V\}c=\text{tr}\ CVCV
+$$
+with equality
+
+
+and $AWA'\preceq\lambda_+(AWA')I$
+
+which has the same eigenvalues as $W^\frac12A'AW^\frac12$.
+
+Let 
+$$
+u_{ij,kl}=\text{tr}\ A_{ij}A_{kl}=(\delta^{ik}-\delta^{il}-\delta^{jk}+\delta^{jl})^2
+$$
+Matrix $U$ has diagonal elements equal to +4. In addition each row has $2n-4$
+elements equal to +1, the rest are zeroes. So the row sums, and the Perron root,
+are equal to $2n$.
+Then
+$$
+\sum_{kl=1}^m u_{ij,kl}c_{kl}=\text{tr}\ A_{ij}C=d_{ij}^2(C)
+$$
+$$
+\sigma(c)=(\delta-Uc)'W(\delta-Uc)
+$$
+
+
+
+Let
+$$
+\overline C=-\frac12\ J(\Delta\times\Delta) J
+$$
+$C=\overline{C}+(C-\overline{C})$
+$d_{ij}^2(C)=\text{tr}\ A_{ij}\overline{C}+\text{tr}\ A_{ij}(C-\overline{C})=
+\delta_{ij}^2+\text{tr}\ A_{ij}(C-\overline{C})$
+and thus
+
+# Appendix: Code
+
+@wen_huang_11
+
+## template.R
+
+```{r file_auxilary, code = readLines("misTorg.R")}
+```
+
+# References
